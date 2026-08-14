@@ -7,7 +7,7 @@ Run with:
 
 from __future__ import annotations
 
-import io
+import os
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -18,6 +18,36 @@ from fdd.features import extract_features, SPIKE_WINDOW_DAYS
 from fdd.detection import analyze
 from fdd.explain import generate_explanation
 from fdd.schema import DiscountStatus
+
+
+# ---------------------------------------------------------------------------
+# Load real product catalog (once, cached)
+# ---------------------------------------------------------------------------
+
+@st.cache_data
+def load_catalog() -> pd.DataFrame:
+    """Load the Amazon product snapshot and parse prices."""
+    path = os.path.join(os.path.dirname(__file__), "data", "real_snapshot_reference.csv")
+    df = pd.read_csv(path)
+
+    def parse_price(col):
+        return (
+            df[col]
+            .astype(str)
+            .str.replace(r"[₹,]", "", regex=True)
+            .str.strip()
+            .replace("", np.nan)
+            .astype(float)
+        )
+
+    df["actual_price_clean"]    = parse_price("actual_price")
+    df["discount_price_clean"]  = parse_price("discount_price")
+
+    # Keep only rows where both prices are present and discount < actual
+    df = df.dropna(subset=["actual_price_clean", "discount_price_clean"])
+    df = df[df["discount_price_clean"] < df["actual_price_clean"]]
+    df = df.reset_index(drop=True)
+    return df
 
 
 # ---------------------------------------------------------------------------
@@ -392,13 +422,39 @@ with st.sidebar:
 
     mode = st.radio(
         "**Input mode**",
-        options=["Demo (synthetic)", "Upload CSV"],
+        options=["Real Product 🛒", "Demo (synthetic)", "Upload CSV"],
         index=0,
     )
 
     st.divider()
 
-    if mode == "Demo (synthetic)":
+    if mode == "Real Product 🛒":
+        catalog = load_catalog()
+        product_names = catalog["name"].tolist()
+        selected_name = st.selectbox(
+            "**Pick a product**",
+            options=product_names,
+            index=0,
+            help="Choose any product from the Amazon catalog.",
+        )
+        selected_row = catalog[catalog["name"] == selected_name].iloc[0]
+        actual_p  = float(selected_row["actual_price_clean"])
+        discount_p = float(selected_row["discount_price_clean"])
+
+        st.markdown(
+            f"<div style='font-size:12px;color:#8b949e;margin-top:8px;'>"
+            f"MRP: <b style='color:#c9d1d9;'>₹{actual_p:.0f}</b> &nbsp;→&nbsp; "
+            f"Sale: <b style='color:#56d364;'>₹{discount_p:.0f}</b> &nbsp; "
+            f"({((actual_p - discount_p)/actual_p*100):.0f}% off)"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        st.divider()
+        n_days_real = st.slider("Simulated history length (days)", 60, 300, 180, 10)
+        seed_real   = st.number_input("Seed", value=42, step=1)
+        analyze_btn = st.button("🔍 Analyse", use_container_width=True, type="primary")
+
+    elif mode == "Demo (synthetic)":
         regime_labels = {
             "Dark Pattern 🔴": Regime.DARK_PATTERN,
             "Genuine Discount 🟢": Regime.GENUINE_DISCOUNT,
@@ -485,8 +541,59 @@ if not analyze_btn:
     st.info("👈 Choose an input mode in the sidebar and click **Analyse** to begin.", icon="💡")
 
 else:
+    # ── Real Product mode ───────────────────────────────────────────────────
+    if mode == "Real Product 🛒":
+        # Truncate long names for display
+        display_name = selected_name if len(selected_name) <= 80 else selected_name[:77] + "..."
+
+        st.markdown(
+            f"""
+            <div style='background:#161b22;border:1px solid #30363d;border-radius:8px;
+                        padding:16px 20px;margin-bottom:20px;'>
+              <div style='font-size:11px;font-weight:600;letter-spacing:1px;
+                          text-transform:uppercase;color:#8b949e;margin-bottom:6px;'>Analysing Product</div>
+              <div style='font-size:16px;font-weight:700;color:#e6edf3;margin-bottom:10px;
+                          line-height:1.4;'>{display_name}</div>
+              <div style='font-size:13px;color:#8b949e;'>
+                MRP: <b style='color:#c9d1d9;'>₹{actual_p:.0f}</b>
+                &nbsp;→&nbsp;
+                Sale Price: <b style='color:#56d364;'>₹{discount_p:.0f}</b>
+                &nbsp;&nbsp;
+                <span style='background:#56d36422;border:1px solid #56d36455;
+                             color:#56d364;border-radius:6px;padding:2px 10px;font-weight:700;'>
+                  {((actual_p - discount_p)/actual_p*100):.0f}% off
+                </span>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # Use actual MRP as the base price for simulation
+        with st.spinner("Simulating price history for this product…"):
+            series = generate_series(
+                regime=Regime.DARK_PATTERN,   # simulate the suspicious scenario by default
+                product_id=selected_name[:40],
+                n_days=int(n_days_real),
+                base_price=float(discount_p),   # real "normal" price = the discount price
+                seed=int(seed_real),
+            )
+            # Override the claimed prices with the real product prices
+            series.claimed_original_price = actual_p
+            series.claimed_sale_price     = discount_p
+
+        df = series.to_dataframe()
+
+        run_analysis(
+            df=df,
+            orig=actual_p,
+            sale=discount_p,
+            sale_date=series.sale_date,
+            pid=selected_name[:40],
+        )
+
     # ── Demo mode ──────────────────────────────────────────────────────────
-    if mode == "Demo (synthetic)":
+    elif mode == "Demo (synthetic)":
         regime = regime_labels[regime_choice]
         with st.spinner("Generating synthetic price history…"):
             series = generate_series(
