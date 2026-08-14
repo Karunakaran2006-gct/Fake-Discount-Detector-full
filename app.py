@@ -569,16 +569,36 @@ else:
             unsafe_allow_html=True,
         )
 
-        # Use actual MRP as the base price for simulation
+        # Auto-pick regime based on actual discount size
+        discount_pct = (actual_p - discount_p) / actual_p * 100
+        if discount_pct >= 25:
+            # Large genuine-looking discount
+            auto_regime = Regime.GENUINE_DISCOUNT
+            regime_reason = f"{discount_pct:.0f}% off — large discount, simulating genuine pricing history."
+        elif discount_pct < 5:
+            # Barely a discount — cosmetic
+            auto_regime = Regime.STABLE
+            regime_reason = f"{discount_pct:.0f}% off — tiny discount, simulating cosmetic/stable pricing."
+        elif discount_pct < 15:
+            # Moderate discount — could be gradual drift
+            auto_regime = Regime.GRADUAL_DRIFT
+            regime_reason = f"{discount_pct:.0f}% off — moderate discount, simulating gradual price drift."
+        else:
+            # 15–24% — classic range for inflated MRP tricks
+            auto_regime = Regime.DARK_PATTERN
+            regime_reason = f"{discount_pct:.0f}% off — mid-range discount, simulating potential price spike pattern."
+
+        st.caption(f"🤖 Auto-detected pattern: **{auto_regime.value}** — {regime_reason}")
+
         with st.spinner("Simulating price history for this product…"):
             series = generate_series(
-                regime=Regime.DARK_PATTERN,   # simulate the suspicious scenario by default
+                regime=auto_regime,
                 product_id=selected_name[:40],
                 n_days=int(n_days_real),
-                base_price=float(discount_p),   # real "normal" price = the discount price
+                base_price=float(discount_p),
                 seed=int(seed_real),
             )
-            # Override the claimed prices with the real product prices
+            # Override with real product prices
             series.claimed_original_price = actual_p
             series.claimed_sale_price     = discount_p
 
