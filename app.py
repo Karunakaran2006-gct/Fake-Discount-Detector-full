@@ -477,15 +477,50 @@ with st.sidebar:
         uploaded = st.file_uploader(
             "**Upload price history CSV**",
             type=["csv"],
-            help="CSV must have columns: `date`, `price`",
+            help="Required columns: `date`, `price`. Optional: `product_name`",
         )
-        st.caption("Columns required: `date` (any date format), `price` (numeric)")
+        st.caption("Required: `date`, `price`. Optional: `product_name` (for multiple products in one file)")
         st.divider()
-        pid_input = st.text_input("Product ID", value="PRODUCT-001")
-        orig_input = st.number_input("Claimed original price (₹)", value=1000.0, step=10.0)
-        sale_input = st.number_input("Claimed sale price (₹)", value=700.0, step=10.0)
-        sale_date_input = st.date_input("Sale date")
-        analyze_btn = st.button("🔍 Analyse", use_container_width=True, type="primary")
+        
+        analyze_btn = False
+        prod_df = None
+        
+        if uploaded is not None:
+            try:
+                uploaded.seek(0)
+                upload_df = pd.read_csv(uploaded)
+                
+                if "date" not in upload_df.columns or "price" not in upload_df.columns:
+                    st.error("CSV must contain `date` and `price` columns.")
+                else:
+                    if "product_name" in upload_df.columns:
+                        product_list = upload_df["product_name"].unique().tolist()
+                        selected_product = st.selectbox(
+                            "**Select Product (type to search)**", 
+                            options=product_list,
+                            index=0
+                        )
+                        prod_df = upload_df[upload_df["product_name"] == selected_product].copy()
+                        pid_val = selected_product
+                    else:
+                        prod_df = upload_df.copy()
+                        pid_val = "UPLOADED-PRODUCT"
+                    
+                    # Ensure date is parsed and sorted for default auto-detection
+                    prod_df["date"] = pd.to_datetime(prod_df["date"])
+                    prod_df = prod_df.sort_values("date")
+                    
+                    default_orig = float(prod_df["price"].max())
+                    default_sale = float(prod_df["price"].iloc[-1])
+                    default_date = prod_df["date"].iloc[-1].date()
+                    
+                    pid_input = st.text_input("Product Name/ID", value=pid_val)
+                    orig_input = st.number_input("Claimed MRP (₹)", value=default_orig, step=10.0)
+                    sale_input = st.number_input("Claimed Sale Price (₹)", value=default_sale, step=10.0)
+                    sale_date_input = st.date_input("Sale date", value=default_date)
+                    analyze_btn = st.button("🔍 Analyse", use_container_width=True, type="primary")
+            except Exception as e:
+                st.error(f"Error parsing CSV: {e}")
 
     st.divider()
     st.markdown(
@@ -651,18 +686,22 @@ else:
     else:
         if uploaded is None:
             st.warning("Please upload a CSV file in the sidebar.", icon="⬆️")
-        else:
-            try:
-                df = pd.read_csv(uploaded)
-                if "date" not in df.columns or "price" not in df.columns:
-                    st.error("CSV must contain `date` and `price` columns.")
-                else:
-                    run_analysis(
-                        df=df,
-                        orig=float(orig_input),
-                        sale=float(sale_input),
-                        sale_date=str(sale_date_input),
-                        pid=pid_input,
-                    )
-            except Exception as e:
-                st.error(f"Failed to read CSV: {e}")
+        elif 'prod_df' in locals() and prod_df is not None:
+            st.markdown(
+                f"""
+                <div style='background:#161b22;border:1px solid #30363d;border-radius:8px;
+                            padding:12px 20px;margin-bottom:20px;font-size:13px;color:#8b949e;'>
+                  <b style='color:#c9d1d9;'>Uploaded Data:</b>
+                  Product = <code>{pid_input}</code> &nbsp;|&nbsp;
+                  Rows analyzed = <b>{len(prod_df)}</b>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            run_analysis(
+                df=prod_df,
+                orig=float(orig_input),
+                sale=float(sale_input),
+                sale_date=str(sale_date_input),
+                pid=pid_input,
+            )
