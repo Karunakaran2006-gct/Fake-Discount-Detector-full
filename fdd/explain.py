@@ -77,7 +77,7 @@ def _spike_sentence(features: PriceFeatures) -> str | None:
             f"The price rose {pct:.1%} in the run-up to the sale, "
             f"above what normal price noise would explain."
         )
-    if pct <= 0.0:
+    if pct <= 0.05:
         return "No pre-sale price spike was detected."
     return None
 

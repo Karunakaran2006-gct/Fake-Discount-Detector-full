@@ -512,12 +512,19 @@ with st.sidebar:
                     
                     default_orig = float(prod_df["price"].max())
                     default_sale = float(prod_df["price"].iloc[-1])
-                    default_date = prod_df["date"].iloc[-1].date()
                     
-                    pid_input = st.text_input("Product Name/ID", value=pid_val)
-                    orig_input = st.number_input("Claimed MRP (₹)", value=default_orig, step=10.0)
-                    sale_input = st.number_input("Claimed Sale Price (₹)", value=default_sale, step=10.0)
-                    sale_date_input = st.date_input("Sale date", value=default_date)
+                    # Smart auto-detection for sale date:
+                    # Find the first date where the price dropped to the sale price
+                    sale_rows = prod_df[prod_df["price"] == default_sale]
+                    if not sale_rows.empty:
+                        default_date = sale_rows["date"].iloc[0].date()
+                    else:
+                        default_date = prod_df["date"].iloc[-1].date()
+                    
+                    pid_input = st.text_input("Product Name/ID", value=pid_val, key=f"pid_{pid_val}")
+                    orig_input = st.number_input("Claimed MRP (₹)", value=default_orig, step=10.0, key=f"orig_{pid_val}")
+                    sale_input = st.number_input("Claimed Sale Price (₹)", value=default_sale, step=10.0, key=f"sale_{pid_val}")
+                    sale_date_input = st.date_input("Sale date", value=default_date, key=f"date_{pid_val}")
                     analyze_btn = st.button("🔍 Analyse", use_container_width=True, type="primary")
             except Exception as e:
                 st.error(f"Error parsing CSV: {e}")
