@@ -71,10 +71,10 @@ def _score_pre_sale_spike(f: PriceFeatures) -> Optional[ScoreFactor]:
             description=f"Price rose {pct:.0%} in the run-up to the sale, higher than normal fluctuation.",
             contribution=0.20,
         )
-    if pct <= 0:
+    if pct <= 0.05:
         return ScoreFactor(
             name="pre_sale_spike",
-            description="No pre-sale price increase detected.",
+            description="No significant pre-sale price increase detected.",
             contribution=-0.10,
         )
     return None
@@ -93,6 +93,12 @@ def _score_short_hold(f: PriceFeatures) -> Optional[ScoreFactor]:
             name="short_original_price_hold",
             description=f"'Original' price was held for only {days} days, shorter than a typical stable reference period.",
             contribution=0.15,
+        )
+    if days >= 21:
+        return ScoreFactor(
+            name="long_original_price_hold",
+            description=f"'Original' price was held stably for {days} days before the sale.",
+            contribution=-0.10,
         )
     return None
 
@@ -127,6 +133,12 @@ def _score_pct_below_median(f: PriceFeatures) -> Optional[ScoreFactor]:
             name="minimal_discount_vs_median",
             description=f"Sale price is only {pct:.0%} below the historical median price.",
             contribution=0.08,
+        )
+    if pct > 0.15:
+        return ScoreFactor(
+            name="deep_discount_vs_median",
+            description=f"Sale price is {pct:.0%} below the historical median price — a substantial discount.",
+            contribution=-0.15,
         )
     return None
 
