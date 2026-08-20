@@ -64,91 +64,212 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
     html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 
-    /* Main background */
-    .stApp { background: #0d1117; color: #e6edf3; }
-
-    /* Sidebar */
-    section[data-testid="stSidebar"] {
-        background: #161b22;
-        border-right: 1px solid #30363d;
+    /* ── Main background ── */
+    .stApp {
+        background: radial-gradient(ellipse at 20% 0%, #0f1a2e 0%, #0d1117 50%, #0a0e15 100%);
+        color: #e6edf3;
     }
 
-    /* Cards */
+    /* ── Sidebar ── */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #111827 0%, #0d1117 100%);
+        border-right: 1px solid #1f2937;
+    }
+    section[data-testid="stSidebar"] .stButton > button {
+        background: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%) !important;
+        border: none !important;
+        color: white !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.5px !important;
+        border-radius: 10px !important;
+        padding: 12px !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 15px rgba(29,78,216,0.35) !important;
+    }
+    section[data-testid="stSidebar"] .stButton > button:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 6px 24px rgba(29,78,216,0.55) !important;
+    }
+
+    /* ── Feature cards (landing) ── */
+    .feature-card {
+        background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        padding: 28px 24px;
+        text-align: center;
+        height: 100%;
+        transition: all 0.35s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .feature-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(88,166,255,0.4), transparent);
+    }
+    .feature-card:hover {
+        border-color: rgba(88,166,255,0.3);
+        transform: translateY(-4px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 30px rgba(88,166,255,0.08);
+    }
+
+    /* ── Generic metric card ── */
     .metric-card {
-        background: #161b22;
+        background: rgba(22,27,34,0.8);
         border: 1px solid #30363d;
-        border-radius: 12px;
+        border-radius: 14px;
         padding: 20px 24px;
         text-align: center;
         height: 100%;
+        backdrop-filter: blur(8px);
     }
     .metric-card .label {
-        font-size: 12px;
-        font-weight: 600;
-        letter-spacing: 1px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
         text-transform: uppercase;
-        color: #8b949e;
+        color: #6e7681;
         margin-bottom: 8px;
     }
     .metric-card .value {
         font-size: 32px;
-        font-weight: 700;
+        font-weight: 800;
         line-height: 1;
     }
 
-    /* Status badge */
-    .badge-suspicious {
-        background: linear-gradient(135deg, #ff4d4d22, #ff4d4d11);
-        border: 1px solid #ff4d4d55;
-        color: #ff7b7b;
-    }
-    .badge-genuine {
-        background: linear-gradient(135deg, #3fb95022, #3fb95011);
-        border: 1px solid #3fb95055;
-        color: #56d364;
-    }
-    .badge-uncertain {
-        background: linear-gradient(135deg, #f0883e22, #f0883e11);
-        border: 1px solid #f0883e55;
-        color: #f0883e;
+    /* ── Info strip (product / demo / csv) ── */
+    .info-strip {
+        background: linear-gradient(135deg, rgba(22,27,34,0.9) 0%, rgba(13,17,23,0.9) 100%);
+        border: 1px solid #30363d;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        backdrop-filter: blur(8px);
     }
 
-    /* Explanation box */
+    /* ── Verdict badge ── */
+    .verdict-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        border-radius: 14px;
+        padding: 16px 36px;
+        margin-bottom: 24px;
+        font-size: 26px;
+        font-weight: 900;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        animation: badgePop 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes badgePop {
+        from { opacity: 0; transform: scale(0.7); }
+        to   { opacity: 1; transform: scale(1); }
+    }
+    .verdict-suspicious {
+        background: linear-gradient(135deg, rgba(255,77,77,0.18), rgba(255,77,77,0.06));
+        border: 1.5px solid rgba(255,77,77,0.45);
+        color: #ff7b7b;
+        box-shadow: 0 0 40px rgba(255,77,77,0.2), inset 0 0 20px rgba(255,77,77,0.04);
+    }
+    .verdict-genuine {
+        background: linear-gradient(135deg, rgba(63,185,80,0.18), rgba(63,185,80,0.06));
+        border: 1.5px solid rgba(63,185,80,0.45);
+        color: #56d364;
+        box-shadow: 0 0 40px rgba(63,185,80,0.2), inset 0 0 20px rgba(63,185,80,0.04);
+    }
+    .verdict-uncertain {
+        background: linear-gradient(135deg, rgba(240,136,62,0.18), rgba(240,136,62,0.06));
+        border: 1.5px solid rgba(240,136,62,0.45);
+        color: #f0883e;
+        box-shadow: 0 0 40px rgba(240,136,62,0.2), inset 0 0 20px rgba(240,136,62,0.04);
+    }
+
+    /* ── Score bars ── */
+    .score-bar-wrap { margin-bottom: 18px; }
+    .score-bar-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        margin-bottom: 6px;
+    }
+    .score-bar-label { font-weight: 600; color: #8b949e; }
+    .score-bar-value { font-weight: 800; color: #e6edf3; font-size: 14px; }
+    .score-bar-track {
+        background: rgba(255,255,255,0.05);
+        border-radius: 99px;
+        height: 8px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.06);
+    }
+    .score-bar-fill {
+        height: 100%;
+        border-radius: 99px;
+        transition: width 0.8s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    /* ── Explanation box ── */
     .explanation-box {
-        background: #161b22;
+        background: linear-gradient(135deg, rgba(22,27,34,0.9), rgba(13,17,23,0.9));
         border: 1px solid #30363d;
         border-left: 4px solid #58a6ff;
-        border-radius: 8px;
-        padding: 20px 24px;
+        border-radius: 12px;
+        padding: 24px 28px;
         font-size: 14px;
-        line-height: 1.8;
+        line-height: 1.9;
         white-space: pre-wrap;
         color: #c9d1d9;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 0 30px rgba(88,166,255,0.02);
     }
 
-    /* Progress bar track */
-    .score-bar-track {
-        background: #21262d;
-        border-radius: 99px;
-        height: 10px;
-        overflow: hidden;
-        margin-top: 6px;
-    }
-
-    /* Section headers */
+    /* ── Section headers ── */
     h2 { color: #e6edf3 !important; }
-    h3 { color: #c9d1d9 !important; }
+    h3 {
+        color: #c9d1d9 !important;
+        font-size: 16px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.3px !important;
+        margin-bottom: 14px !important;
+    }
 
-    /* Divider */
-    hr { border-color: #30363d; }
+    /* ── Divider ── */
+    hr { border-color: #1f2937; margin: 20px 0; }
 
-    /* Streamlit default overrides */
+    /* ── Streamlit overrides ── */
     div[data-testid="stMetric"] label { color: #8b949e !important; }
-    .stDataFrame { border: 1px solid #30363d; border-radius: 8px; }
+    .stDataFrame { border: 1px solid #30363d; border-radius: 10px; overflow: hidden; }
+    .stDataFrame thead tr th {
+        background: #161b22 !important;
+        color: #8b949e !important;
+        font-weight: 700 !important;
+        font-size: 12px !important;
+        letter-spacing: 1px !important;
+        text-transform: uppercase !important;
+    }
+    div[data-testid="stExpander"] {
+        border: 1px solid #30363d !important;
+        border-radius: 10px !important;
+        background: rgba(22,27,34,0.5) !important;
+    }
+
+    /* ── Shimmer animation for spinner context ── */
+    @keyframes shimmer {
+        0%   { background-position: -200% center; }
+        100% { background-position:  200% center; }
+    }
+    .shimmer-text {
+        background: linear-gradient(90deg, #58a6ff 0%, #a371f7 50%, #58a6ff 100%);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: shimmer 3s linear infinite;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -258,17 +379,16 @@ def build_chart(
 # Helper: render a score bar in HTML
 # ---------------------------------------------------------------------------
 
-def score_bar_html(label: str, value: float, color: str) -> str:
+def score_bar_html(label: str, value: float, gradient: str) -> str:
     pct = int(value * 100)
     return f"""
-    <div style="margin-bottom:16px;">
-      <div style="display:flex;justify-content:space-between;font-size:13px;color:#8b949e;margin-bottom:4px;">
-        <span style="font-weight:600;">{label}</span>
-        <span style="color:#c9d1d9;font-weight:700;">{value:.2f}</span>
+    <div class="score-bar-wrap">
+      <div class="score-bar-header">
+        <span class="score-bar-label">{label}</span>
+        <span class="score-bar-value">{value:.2f}</span>
       </div>
       <div class="score-bar-track">
-        <div style="width:{pct}%;height:100%;background:{color};border-radius:99px;
-                    transition:width 0.6s ease;"></div>
+        <div class="score-bar-fill" style="width:{pct}%;background:{gradient};"></div>
       </div>
     </div>
     """
@@ -297,54 +417,53 @@ def run_analysis(df: pd.DataFrame, orig: float, sale: float, sale_date: str, pid
     st.markdown("### 🏷️ Verdict")
     status = result.status
 
-    badge_class = {
-        DiscountStatus.SUSPICIOUS: "badge-suspicious",
-        DiscountStatus.GENUINE: "badge-genuine",
-        DiscountStatus.UNCERTAIN: "badge-uncertain",
+    verdict_class = {
+        DiscountStatus.SUSPICIOUS: "verdict-suspicious",
+        DiscountStatus.GENUINE:    "verdict-genuine",
+        DiscountStatus.UNCERTAIN:  "verdict-uncertain",
     }[status]
 
     icon = {
         DiscountStatus.SUSPICIOUS: "⚠️",
-        DiscountStatus.GENUINE: "✅",
-        DiscountStatus.UNCERTAIN: "❓",
+        DiscountStatus.GENUINE:    "✅",
+        DiscountStatus.UNCERTAIN:  "❓",
     }[status]
 
     st.markdown(
-        f"""
-        <div class="metric-card {badge_class}" style="margin-bottom:20px;display:inline-block;padding:12px 32px;">
-          <span style="font-size:28px;font-weight:800;letter-spacing:1px;">
-            {icon} {status.value.upper()}
-          </span>
-        </div>
-        """,
+        f'<div class="verdict-badge {verdict_class}">{icon}&nbsp;{status.value.upper()}</div>',
         unsafe_allow_html=True,
     )
 
     col1, col2 = st.columns(2)
     with col1:
-        susp_color = "#ff7b7b" if result.suspicion_score > 0.55 else (
-            "#56d364" if result.suspicion_score < 0.25 else "#f0883e"
+        susp_grad = (
+            "linear-gradient(90deg,#ff4d4d,#ff7b7b)" if result.suspicion_score > 0.55
+            else ("linear-gradient(90deg,#56d364,#3fb950)" if result.suspicion_score < 0.25
+                  else "linear-gradient(90deg,#f0883e,#f5a962)")
         )
         st.markdown(
-            score_bar_html("Suspicion Score", result.suspicion_score, susp_color),
+            score_bar_html("Suspicion Score", result.suspicion_score, susp_grad),
             unsafe_allow_html=True,
         )
         st.markdown(
-            score_bar_html("Confidence", result.confidence, "#58a6ff"),
+            score_bar_html("Confidence", result.confidence,
+                           "linear-gradient(90deg,#1d4ed8,#58a6ff)"),
             unsafe_allow_html=True,
         )
 
     with col2:
-        vol_color = "#ff7b7b" if result.volatility_score > 0.7 else (
-            "#56d364" if result.volatility_score < 0.3 else "#f0883e"
+        vol_grad = (
+            "linear-gradient(90deg,#ff4d4d,#ff7b7b)" if result.volatility_score > 0.7
+            else ("linear-gradient(90deg,#56d364,#3fb950)" if result.volatility_score < 0.3
+                  else "linear-gradient(90deg,#f0883e,#f5a962)")
         )
         st.markdown(
-            score_bar_html("Volatility Score", result.volatility_score, vol_color),
+            score_bar_html("Volatility Score", result.volatility_score, vol_grad),
             unsafe_allow_html=True,
         )
         st.markdown(
             score_bar_html("Days History", min(1.0, features.n_days_history / 180),
-                           "#a371f7"),
+                           "linear-gradient(90deg,#7c3aed,#a371f7)"),
             unsafe_allow_html=True,
         )
 
@@ -406,12 +525,14 @@ def run_analysis(df: pd.DataFrame, orig: float, sale: float, sale_date: str, pid
 with st.sidebar:
     st.markdown(
         """
-        <div style='text-align:center;padding:16px 0 24px;'>
-          <div style='font-size:36px;'>🔍</div>
-          <div style='font-size:18px;font-weight:700;color:#e6edf3;'>Fake Discount</div>
-          <div style='font-size:18px;font-weight:700;color:#58a6ff;'>Detector</div>
-          <div style='font-size:11px;color:#8b949e;margin-top:4px;'>
-            Pattern-based price analysis
+        <div style='text-align:center;padding:20px 0 28px;'>
+          <div style='font-size:44px;filter:drop-shadow(0 0 18px rgba(88,166,255,0.6));margin-bottom:10px;'>🔍</div>
+          <div style='font-size:20px;font-weight:900;letter-spacing:-0.5px;
+                      background:linear-gradient(90deg,#58a6ff,#a371f7);
+                      -webkit-background-clip:text;-webkit-text-fill-color:transparent;'
+          >Fake Discount Detector</div>
+          <div style='font-size:11px;color:#6e7681;margin-top:6px;letter-spacing:0.5px;'>
+            PATTERN-BASED PRICE ANALYSIS
           </div>
         </div>
         """,
@@ -545,13 +666,25 @@ with st.sidebar:
 
 st.markdown(
     """
-    <h1 style='font-size:32px;font-weight:800;color:#e6edf3;margin-bottom:4px;'>
-      Fake Discount Detector
-    </h1>
-    <p style='color:#8b949e;font-size:15px;margin-bottom:24px;'>
-      Detects misleading e-commerce discounts by analyzing historical pricing patterns —
-      no labels required.
-    </p>
+    <div style='margin-bottom:28px;'>
+      <h1 style='font-size:38px;font-weight:900;letter-spacing:-1px;margin-bottom:6px;
+                  background:linear-gradient(90deg,#e6edf3 0%,#58a6ff 50%,#a371f7 100%);
+                  -webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block;'>
+        Fake Discount Detector
+      </h1>
+      <p style='color:#6e7681;font-size:15px;margin:0 0 16px;max-width:620px;line-height:1.6;'>
+        Detects misleading e-commerce discounts by analyzing historical pricing patterns —
+        no machine-learning labels required.
+      </p>
+      <div style='display:flex;gap:8px;flex-wrap:wrap;'>
+        <span style='background:rgba(88,166,255,0.12);border:1px solid rgba(88,166,255,0.25);
+                     color:#58a6ff;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:600;'>📊 Rule-based</span>
+        <span style='background:rgba(163,113,247,0.12);border:1px solid rgba(163,113,247,0.25);
+                     color:#a371f7;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:600;'>🤖 Isolation Forest</span>
+        <span style='background:rgba(86,211,100,0.12);border:1px solid rgba(86,211,100,0.25);
+                     color:#56d364;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:600;'>✅ 3-State verdict</span>
+      </div>
+    </div>
     """,
     unsafe_allow_html=True,
 )
@@ -561,26 +694,41 @@ st.divider()
 if not analyze_btn:
     # Landing state
     c1, c2, c3 = st.columns(3)
-    for col, icon, title, desc in [
+    for col, icon, title, desc, accent in [
         (c1, "📊", "Pattern Recognition",
-         "Detects pre-sale price spikes, short-hold 'original' prices, and cosmetic discounts."),
-        (c2, "🤖", "Anomaly Cross-check",
-         "Isolation Forest flags products that are statistical outliers vs a reference population."),
-        (c3, "💬", "Plain-language Output",
-         "Every verdict comes with an explanation you can actually read and trust."),
+         "Detects pre-sale price spikes, short-hold 'original' prices, and cosmetic discounts.",
+         "#58a6ff"),
+        (c2, "🤖", "Anomaly Detection",
+         "Isolation Forest cross-checks pricing against a reference population of real products.",
+         "#a371f7"),
+        (c3, "💬", "Plain-language Verdict",
+         "Every result ships with a readable explanation — Genuine, Suspicious, or Uncertain.",
+         "#56d364"),
     ]:
         with col:
             st.markdown(
                 f"""
-                <div class="metric-card">
-                  <div style='font-size:28px;margin-bottom:12px;'>{icon}</div>
-                  <div style='font-size:15px;font-weight:600;color:#e6edf3;margin-bottom:8px;'>{title}</div>
-                  <div style='font-size:13px;color:#8b949e;line-height:1.6;'>{desc}</div>
+                <div class="feature-card">
+                  <div style='font-size:36px;margin-bottom:16px;
+                              filter:drop-shadow(0 0 12px {accent}66);'>{icon}</div>
+                  <div style='font-size:15px;font-weight:700;color:#e6edf3;
+                              margin-bottom:10px;'>{title}</div>
+                  <div style='font-size:13px;color:#6e7681;line-height:1.7;'>{desc}</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-    st.info("👈 Choose an input mode in the sidebar and click **Analyse** to begin.", icon="💡")
+    st.markdown(
+        """
+        <div style='margin-top:28px;background:linear-gradient(135deg,rgba(88,166,255,0.08),rgba(163,113,247,0.06));
+                    border:1px solid rgba(88,166,255,0.2);border-radius:12px;
+                    padding:16px 22px;font-size:14px;color:#8b949e;'>
+          💡 <b style='color:#c9d1d9;'>Get started:</b> Choose an input mode in the sidebar and click
+          <b style='color:#58a6ff;'>Analyse</b> to inspect a product's pricing history.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 else:
     # ── Real Product mode ───────────────────────────────────────────────────
@@ -590,19 +738,17 @@ else:
 
         st.markdown(
             f"""
-            <div style='background:#161b22;border:1px solid #30363d;border-radius:8px;
-                        padding:16px 20px;margin-bottom:20px;'>
-              <div style='font-size:11px;font-weight:600;letter-spacing:1px;
-                          text-transform:uppercase;color:#8b949e;margin-bottom:6px;'>Analysing Product</div>
-              <div style='font-size:16px;font-weight:700;color:#e6edf3;margin-bottom:10px;
+            <div class="info-strip">
+              <div style='font-size:10px;font-weight:700;letter-spacing:2px;
+                          text-transform:uppercase;color:#6e7681;margin-bottom:8px;'>Analysing Product</div>
+              <div style='font-size:17px;font-weight:700;color:#e6edf3;margin-bottom:12px;
                           line-height:1.4;'>{display_name}</div>
-              <div style='font-size:13px;color:#8b949e;'>
-                MRP: <b style='color:#c9d1d9;'>₹{actual_p:.0f}</b>
-                &nbsp;→&nbsp;
-                Sale Price: <b style='color:#56d364;'>₹{discount_p:.0f}</b>
-                &nbsp;&nbsp;
-                <span style='background:#56d36422;border:1px solid #56d36455;
-                             color:#56d364;border-radius:6px;padding:2px 10px;font-weight:700;'>
+              <div style='display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;'>
+                <span style='color:#8b949e;'>MRP: <b style='color:#c9d1d9;'>₹{actual_p:.0f}</b></span>
+                <span style='color:#30363d;'>→</span>
+                <span style='color:#8b949e;'>Sale: <b style='color:#56d364;'>₹{discount_p:.0f}</b></span>
+                <span style='background:rgba(86,211,100,0.12);border:1px solid rgba(86,211,100,0.3);
+                             color:#56d364;border-radius:20px;padding:3px 12px;font-weight:700;font-size:12px;'>
                   {((actual_p - discount_p)/actual_p*100):.0f}% off
                 </span>
               </div>
