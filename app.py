@@ -736,7 +736,7 @@ if not analyze_btn:
 
 else:
     # ── Real Product mode ───────────────────────────────────────────────────
-    if mode == "Real Product 🛒":
+    if mode == "Real Product":
         # Truncate long names for display
         display_name = selected_name if len(selected_name) <= 80 else selected_name[:77] + "..."
 
@@ -806,7 +806,7 @@ else:
         )
 
     # ── Demo mode ──────────────────────────────────────────────────────────
-    elif mode == "Try an Example 🧪":
+    elif mode == "Try an Example":
         regime = regime_labels[regime_choice]
         with st.spinner("Generating synthetic price history…"):
             series = generate_series(
