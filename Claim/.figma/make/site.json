@@ -1,0 +1,10 @@
+{
+  "description": "Streamline employee expense claims with an interactive dashboard for tracking submissions and approvals, enhancing visibility and efficiency for both employees and managers.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

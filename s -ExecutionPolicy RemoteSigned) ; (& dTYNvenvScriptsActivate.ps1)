@@ -1,0 +1,41 @@
+[33mcommit a1b0c213c21d0ad000f07ce9533e811a4eaa1f03[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mStyling_improvements[m[33m, [m[1;31morigin/Styling_improvements[m[33m)[m
+Author: Karunakaran2006-gct <karunakaran2006gct@gmail.com>
+Date:   Thu Aug 20 16:22:57 2026 +0530
+
+    improved UI features
+
+[33mcommit 3a7db69c460a1122a90aeaa10b45a44029f07b5f[m[33m ([m[1;31morigin/feature/fdd-improvements[m[33m, [m[1;32mfeature/fdd-improvements[m[33m)[m
+Author: Karunakaran2006-gct <karunakaran2006gct@gmail.com>
+Date:   Thu Aug 20 15:40:33 2026 +0530
+
+    feat: improve discount detection and sale date handling
+
+[33mcommit e8ae4db82dbb37167a06e60fe3d7755cdfbaaa3d[m[33m ([m[1;31morigin/main[m[33m, [m[1;32mmain[m[33m)[m
+Author: Karunakaran2006-gct <karunakaran2006gct@gmail.com>
+Date:   Fri Aug 14 23:54:00 2026 +0530
+
+    feat: enhance CSV upload to support multi-product files and auto-detect prices
+
+[33mcommit f5b42031e54a08840cf454820511d46ac34a2036[m
+Author: Karunakaran2006-gct <karunakaran2006gct@gmail.com>
+Date:   Fri Aug 14 23:46:25 2026 +0530
+
+    fix: use correct base_price per regime so GENUINE products actually get GENUINE verdict
+
+[33mcommit 4fc038d78c5523389ee20715c571987e13c36ce4[m
+Author: Karunakaran2006-gct <karunakaran2006gct@gmail.com>
+Date:   Fri Aug 14 23:41:28 2026 +0530
+
+    fix: auto-determine regime from real discount % instead of hardcoding DARK_PATTERN
+
+[33mcommit 1e6d2a7a8c1b18461b694d69ea94f95a32694600[m
+Author: Karunakaran2006-gct <karunakaran2006gct@gmail.com>
+Date:   Fri Aug 14 23:19:49 2026 +0530
+
+    add Real Product mode - analyze actual Amazon products from catalog
+
+[33mcommit c40df361231eddf5bea3152a8e8410bc439c8023[m
+Author: Karunakaran2006-gct <karunakaran2006gct@gmail.com>
+Date:   Fri Aug 14 23:08:44 2026 +0530
+
+    initial commit - Fake Discount Detector

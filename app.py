@@ -17,6 +17,7 @@ from fdd.generator import generate_series, Regime
 from fdd.features import extract_features, SPIKE_WINDOW_DAYS
 from fdd.detection import analyze
 from fdd.explain import generate_explanation
+from fdd.gemini_explain import gemini_explain, parse_gemini_sections
 from fdd.schema import DiscountStatus
 
 
@@ -56,7 +57,6 @@ def load_catalog() -> pd.DataFrame:
 
 st.set_page_config(
     page_title="Fake Discount Detector",
-    page_icon="🔍",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -64,212 +64,132 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+    html, body, [class*="css"] { font-family: 'DM Sans', sans-serif !important; }
 
     /* ── Main background ── */
-    .stApp {
-        background: radial-gradient(ellipse at 20% 0%, #0f1a2e 0%, #0d1117 50%, #0a0e15 100%);
-        color: #e6edf3;
-    }
+    .stApp { background: #0a0a0a; color: #f0f0f0; }
 
     /* ── Sidebar ── */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #111827 0%, #0d1117 100%);
-        border-right: 1px solid #1f2937;
+        background: #111111;
+        border-right: 1px solid #222;
     }
     section[data-testid="stSidebar"] .stButton > button {
-        background: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%) !important;
+        background: #f0f0f0 !important;
         border: none !important;
-        color: white !important;
+        color: #0a0a0a !important;
         font-weight: 700 !important;
-        letter-spacing: 0.5px !important;
-        border-radius: 10px !important;
+        font-family: 'DM Sans', sans-serif !important;
+        font-size: 15px !important;
+        border-radius: 8px !important;
         padding: 12px !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 4px 15px rgba(29,78,216,0.35) !important;
+        transition: background 0.2s ease !important;
+        letter-spacing: 0 !important;
+        box-shadow: none !important;
     }
     section[data-testid="stSidebar"] .stButton > button:hover {
-        transform: translateY(-1px) !important;
-        box-shadow: 0 6px 24px rgba(29,78,216,0.55) !important;
+        background: #d4d4d4 !important;
+        transform: none !important;
     }
 
     /* ── Feature cards (landing) ── */
     .feature-card {
-        background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 16px;
+        background: #141414;
+        border: 1px solid #242424;
+        border-radius: 12px;
         padding: 28px 24px;
         text-align: center;
         height: 100%;
-        transition: all 0.35s ease;
-        position: relative;
-        overflow: hidden;
+        transition: border-color 0.2s ease;
     }
-    .feature-card::before {
-        content: '';
-        position: absolute;
-        top: 0; left: 0; right: 0;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(88,166,255,0.4), transparent);
-    }
-    .feature-card:hover {
-        border-color: rgba(88,166,255,0.3);
-        transform: translateY(-4px);
-        box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 30px rgba(88,166,255,0.08);
-    }
+    .feature-card:hover { border-color: #444; }
 
-    /* ── Generic metric card ── */
-    .metric-card {
-        background: rgba(22,27,34,0.8);
-        border: 1px solid #30363d;
-        border-radius: 14px;
-        padding: 20px 24px;
-        text-align: center;
-        height: 100%;
-        backdrop-filter: blur(8px);
-    }
-    .metric-card .label {
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-        color: #6e7681;
-        margin-bottom: 8px;
-    }
-    .metric-card .value {
-        font-size: 32px;
-        font-weight: 800;
-        line-height: 1;
-    }
-
-    /* ── Info strip (product / demo / csv) ── */
+    /* ── Info strip ── */
     .info-strip {
-        background: linear-gradient(135deg, rgba(22,27,34,0.9) 0%, rgba(13,17,23,0.9) 100%);
-        border: 1px solid #30363d;
-        border-radius: 12px;
+        background: #141414;
+        border: 1px solid #242424;
+        border-radius: 10px;
         padding: 16px 20px;
         margin-bottom: 24px;
-        backdrop-filter: blur(8px);
     }
 
-    /* ── Verdict badge ── */
-    .verdict-badge {
-        display: inline-flex;
+    /* ── Verdict block + mascot ── */
+    .verdict-block {
+        border-radius: 16px;
+        padding: 32px 40px;
+        margin-bottom: 28px;
+        display: flex;
         align-items: center;
-        gap: 12px;
-        border-radius: 14px;
-        padding: 16px 36px;
-        margin-bottom: 24px;
-        font-size: 26px;
-        font-weight: 900;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        animation: badgePop 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+        gap: 24px;
+        animation: fadeUp 0.4s ease both;
     }
-    @keyframes badgePop {
-        from { opacity: 0; transform: scale(0.7); }
-        to   { opacity: 1; transform: scale(1); }
+    @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(16px); }
+        to   { opacity: 1; transform: translateY(0); }
     }
-    .verdict-suspicious {
-        background: linear-gradient(135deg, rgba(255,77,77,0.18), rgba(255,77,77,0.06));
-        border: 1.5px solid rgba(255,77,77,0.45);
-        color: #ff7b7b;
-        box-shadow: 0 0 40px rgba(255,77,77,0.2), inset 0 0 20px rgba(255,77,77,0.04);
-    }
-    .verdict-genuine {
-        background: linear-gradient(135deg, rgba(63,185,80,0.18), rgba(63,185,80,0.06));
-        border: 1.5px solid rgba(63,185,80,0.45);
-        color: #56d364;
-        box-shadow: 0 0 40px rgba(63,185,80,0.2), inset 0 0 20px rgba(63,185,80,0.04);
-    }
-    .verdict-uncertain {
-        background: linear-gradient(135deg, rgba(240,136,62,0.18), rgba(240,136,62,0.06));
-        border: 1.5px solid rgba(240,136,62,0.45);
-        color: #f0883e;
-        box-shadow: 0 0 40px rgba(240,136,62,0.2), inset 0 0 20px rgba(240,136,62,0.04);
-    }
+    .verdict-suspicious { background: #1a0a0a; border: 1.5px solid #5a1a1a; }
+    .verdict-genuine    { background: #0a1a0d; border: 1.5px solid #1a5a25; }
+    .verdict-uncertain  { background: #1a1500; border: 1.5px solid #5a4a00; }
+    .verdict-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+    .verdict-title { font-size: 30px; font-weight: 800; line-height: 1.1; }
+    .verdict-sub   { font-size: 14px; margin-top: 6px; opacity: 0.65; }
+
+    .mascot { font-size: 90px; line-height: 1; flex-shrink: 0; display: block; }
+    .mascot-genuine  { animation: mascotBounce 0.6s cubic-bezier(0.34,1.56,0.64,1) both, mascotWiggle 2s 0.8s ease-in-out infinite; }
+    .mascot-susp     { animation: mascotBounce 0.6s cubic-bezier(0.34,1.56,0.64,1) both, mascotShake 0.45s 0.7s ease-in-out 4; }
+    .mascot-uncertain{ animation: mascotBounce 0.6s cubic-bezier(0.34,1.56,0.64,1) both, mascotTilt 1.8s 0.8s ease-in-out infinite; }
+    @keyframes mascotBounce  { from { opacity:0; transform:scale(0.3) rotate(-15deg); } to { opacity:1; transform:scale(1) rotate(0); } }
+    @keyframes mascotWiggle  { 0%,100%{transform:rotate(0) scale(1);} 25%{transform:rotate(8deg) scale(1.06);} 75%{transform:rotate(-8deg) scale(1.06);} }
+    @keyframes mascotShake   { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-9px);} 75%{transform:translateX(9px);} }
+    @keyframes mascotTilt    { 0%,100%{transform:rotate(0);} 50%{transform:rotate(12deg);} }
 
     /* ── Score bars ── */
     .score-bar-wrap { margin-bottom: 18px; }
-    .score-bar-header {
-        display: flex;
-        justify-content: space-between;
-        font-size: 13px;
-        margin-bottom: 6px;
-    }
-    .score-bar-label { font-weight: 600; color: #8b949e; }
-    .score-bar-value { font-weight: 800; color: #e6edf3; font-size: 14px; }
-    .score-bar-track {
-        background: rgba(255,255,255,0.05);
-        border-radius: 99px;
-        height: 8px;
-        overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.06);
-    }
-    .score-bar-fill {
-        height: 100%;
-        border-radius: 99px;
-        transition: width 0.8s cubic-bezier(0.34,1.56,0.64,1);
-    }
+    .score-bar-header { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+    .score-bar-label { font-weight: 600; color: #888; }
+    .score-bar-value { font-weight: 700; color: #f0f0f0; font-size: 13px; }
+    .score-bar-track { background: #1e1e1e; border-radius: 99px; height: 6px; overflow: hidden; border: 1px solid #2a2a2a; }
+    .score-bar-fill  { height: 100%; border-radius: 99px; transition: width 0.8s cubic-bezier(0.34,1.56,0.64,1); }
 
     /* ── Explanation box ── */
     .explanation-box {
-        background: linear-gradient(135deg, rgba(22,27,34,0.9), rgba(13,17,23,0.9));
-        border: 1px solid #30363d;
-        border-left: 4px solid #58a6ff;
-        border-radius: 12px;
+        background: #141414;
+        border: 1px solid #242424;
+        border-left: 3px solid #555;
+        border-radius: 10px;
         padding: 24px 28px;
-        font-size: 14px;
-        line-height: 1.9;
+        font-size: 15px;
+        line-height: 1.8;
         white-space: pre-wrap;
-        color: #c9d1d9;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 0 30px rgba(88,166,255,0.02);
+        color: #c8c8c8;
     }
 
     /* ── Section headers ── */
-    h2 { color: #e6edf3 !important; }
-    h3 {
-        color: #c9d1d9 !important;
-        font-size: 16px !important;
-        font-weight: 700 !important;
-        letter-spacing: 0.3px !important;
-        margin-bottom: 14px !important;
-    }
+    h1, h2, h3 { color: #f0f0f0 !important; font-family: 'DM Sans', sans-serif !important; }
+    h3 { font-size: 16px !important; font-weight: 700 !important; margin-bottom: 14px !important; }
 
     /* ── Divider ── */
-    hr { border-color: #1f2937; margin: 20px 0; }
+    hr { border-color: #222; margin: 20px 0; }
 
     /* ── Streamlit overrides ── */
-    div[data-testid="stMetric"] label { color: #8b949e !important; }
-    .stDataFrame { border: 1px solid #30363d; border-radius: 10px; overflow: hidden; }
+    div[data-testid="stMetric"] label { color: #888 !important; }
+    .stDataFrame { border: 1px solid #242424 !important; border-radius: 8px; overflow: hidden; }
     .stDataFrame thead tr th {
-        background: #161b22 !important;
-        color: #8b949e !important;
+        background: #141414 !important;
+        color: #888 !important;
         font-weight: 700 !important;
         font-size: 12px !important;
-        letter-spacing: 1px !important;
-        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
     }
     div[data-testid="stExpander"] {
-        border: 1px solid #30363d !important;
-        border-radius: 10px !important;
-        background: rgba(22,27,34,0.5) !important;
+        border: 1px solid #242424 !important;
+        border-radius: 8px !important;
+        background: #111 !important;
     }
-
-    /* ── Shimmer animation for spinner context ── */
-    @keyframes shimmer {
-        0%   { background-position: -200% center; }
-        100% { background-position:  200% center; }
-    }
-    .shimmer-text {
-        background: linear-gradient(90deg, #58a6ff 0%, #a371f7 50%, #58a6ff 100%);
-        background-size: 200% auto;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        animation: shimmer 3s linear infinite;
-    }
+    .stRadio label, .stSelectbox label { color: #aaa !important; font-size: 13px !important; }
+    p { color: #aaa !important; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -348,24 +268,24 @@ def build_chart(
     )
 
     fig.update_layout(
-        paper_bgcolor="#0d1117",
-        plot_bgcolor="#0d1117",
-        font=dict(color="#8b949e", family="Inter"),
+        paper_bgcolor="#0a0a0a",
+        plot_bgcolor="#0a0a0a",
+        font=dict(color="#888", family="DM Sans, sans-serif"),
         xaxis=dict(
-            gridcolor="#21262d",
+            gridcolor="#1e1e1e",
             showline=True,
-            linecolor="#30363d",
+            linecolor="#2a2a2a",
             title="Date",
         ),
         yaxis=dict(
-            gridcolor="#21262d",
+            gridcolor="#1e1e1e",
             showline=True,
-            linecolor="#30363d",
+            linecolor="#2a2a2a",
             title="Price (₹)",
         ),
         legend=dict(
-            bgcolor="#161b22",
-            bordercolor="#30363d",
+            bgcolor="#141414",
+            bordercolor="#242424",
             borderwidth=1,
         ),
         hovermode="x unified",
@@ -398,7 +318,7 @@ def score_bar_html(label: str, value: float, gradient: str) -> str:
 # Main analysis function
 # ---------------------------------------------------------------------------
 
-def run_analysis(df: pd.DataFrame, orig: float, sale: float, sale_date: str, pid: str):
+def run_analysis(df: pd.DataFrame, orig: float, sale: float, sale_date: str, pid: str, gemini_key: str = ""):
     try:
         features = extract_features(df, orig, sale, sale_date, pid)
     except Exception as e:
@@ -406,82 +326,120 @@ def run_analysis(df: pd.DataFrame, orig: float, sale: float, sale_date: str, pid
         return
 
     result = analyze(features)
-    generate_explanation(features, result)
+    generate_explanation(features, result)  # fallback explanation
+
+    # Try Gemini for richer text
+    explanation_body = result.explanation_text
+    directive_text = ""
+    ai_powered = False
+    if gemini_key:
+        with st.spinner("Getting AI explanation..."):
+            ai_raw = gemini_explain(features, result, api_key=gemini_key)
+        if ai_raw:
+            explanation_body, directive_text = parse_gemini_sections(ai_raw)
+            ai_powered = True
 
     # ── Price Chart ────────────────────────────────────────────────────────
-    st.markdown("### 📈 Price History")
+    st.markdown("### Price History")
     fig = build_chart(df, sale_date, orig, sale)
     st.plotly_chart(fig, use_container_width=True)
 
-    # ── Status + Scores ───────────────────────────────────────────────────
-    st.markdown("### 🏷️ Verdict")
+    # ── Status + Mascot Verdict ───────────────────────────────────────────
+    st.markdown("### Verdict")
     status = result.status
 
-    verdict_class = {
-        DiscountStatus.SUSPICIOUS: "verdict-suspicious",
-        DiscountStatus.GENUINE:    "verdict-genuine",
-        DiscountStatus.UNCERTAIN:  "verdict-uncertain",
+    _mascot = {
+        DiscountStatus.GENUINE:    ("👍", "mascot-genuine",  "verdict-genuine",    "#4ade80", "Real deal — this discount checks out."),
+        DiscountStatus.SUSPICIOUS: ("😱", "mascot-susp",     "verdict-suspicious", "#f87171", "Looks fake — the price history tells a different story."),
+        DiscountStatus.UNCERTAIN:  ("🤔", "mascot-uncertain","verdict-uncertain",  "#fbbf24", "Can't call it — not enough price data to be sure."),
     }[status]
-
-    icon = {
-        DiscountStatus.SUSPICIOUS: "⚠️",
-        DiscountStatus.GENUINE:    "✅",
-        DiscountStatus.UNCERTAIN:  "❓",
-    }[status]
+    emoji, mascot_cls, block_cls, color, subtitle = _mascot
 
     st.markdown(
-        f'<div class="verdict-badge {verdict_class}">{icon}&nbsp;{status.value.upper()}</div>',
+        f"""
+        <div class="verdict-block {block_cls}">
+          <span class="mascot {mascot_cls}">{emoji}</span>
+          <div>
+            <div class="verdict-label" style="color:{color};">{status.value.upper()}</div>
+            <div class="verdict-title" style="color:{color};">{status.value.capitalize()} Discount</div>
+            <div class="verdict-sub">{subtitle}</div>
+          </div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
     col1, col2 = st.columns(2)
     with col1:
         susp_grad = (
-            "linear-gradient(90deg,#ff4d4d,#ff7b7b)" if result.suspicion_score > 0.55
-            else ("linear-gradient(90deg,#56d364,#3fb950)" if result.suspicion_score < 0.25
-                  else "linear-gradient(90deg,#f0883e,#f5a962)")
+            "linear-gradient(90deg,#ef4444,#f87171)" if result.suspicion_score > 0.55
+            else ("linear-gradient(90deg,#22c55e,#4ade80)" if result.suspicion_score < 0.25
+                  else "linear-gradient(90deg,#f59e0b,#fbbf24)")
         )
-        st.markdown(
-            score_bar_html("Suspicion Score", result.suspicion_score, susp_grad),
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            score_bar_html("Confidence", result.confidence,
-                           "linear-gradient(90deg,#1d4ed8,#58a6ff)"),
-            unsafe_allow_html=True,
-        )
+        st.markdown(score_bar_html("Fake-deal likelihood", result.suspicion_score, susp_grad), unsafe_allow_html=True)
+        st.markdown(score_bar_html("How confident we are", result.confidence, "linear-gradient(90deg,#3b82f6,#60a5fa)"), unsafe_allow_html=True)
 
     with col2:
         vol_grad = (
-            "linear-gradient(90deg,#ff4d4d,#ff7b7b)" if result.volatility_score > 0.7
-            else ("linear-gradient(90deg,#56d364,#3fb950)" if result.volatility_score < 0.3
-                  else "linear-gradient(90deg,#f0883e,#f5a962)")
+            "linear-gradient(90deg,#ef4444,#f87171)" if result.volatility_score > 0.7
+            else ("linear-gradient(90deg,#22c55e,#4ade80)" if result.volatility_score < 0.3
+                  else "linear-gradient(90deg,#f59e0b,#fbbf24)")
         )
+        st.markdown(score_bar_html("Price instability", result.volatility_score, vol_grad), unsafe_allow_html=True)
+        st.markdown(score_bar_html("Data coverage", min(1.0, features.n_days_history / 180), "linear-gradient(90deg,#8b5cf6,#a78bfa)"), unsafe_allow_html=True)
+
+    # ── Directive card (AI only) ───────────────────────────────────────────
+    if directive_text:
+        _dir_color = {
+            DiscountStatus.GENUINE:    "#4ade80",
+            DiscountStatus.SUSPICIOUS: "#f87171",
+            DiscountStatus.UNCERTAIN:  "#fbbf24",
+        }[status]
+        _dir_bg = {
+            DiscountStatus.GENUINE:    "#0a1a0d",
+            DiscountStatus.SUSPICIOUS: "#1a0a0a",
+            DiscountStatus.UNCERTAIN:  "#1a1500",
+        }[status]
         st.markdown(
-            score_bar_html("Volatility Score", result.volatility_score, vol_grad),
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            score_bar_html("Days History", min(1.0, features.n_days_history / 180),
-                           "linear-gradient(90deg,#7c3aed,#a371f7)"),
+            f"""
+            <div style='background:{_dir_bg};border:1px solid {_dir_color}55;
+                        border-left:4px solid {_dir_color};
+                        border-radius:10px;padding:20px 24px;margin-bottom:20px;'>
+              <div style='font-size:11px;font-weight:700;letter-spacing:2px;
+                          text-transform:uppercase;color:{_dir_color};margin-bottom:8px;'>What should you do?</div>
+              <div style='font-size:15px;line-height:1.75;color:#e0e0e0;'>{directive_text}</div>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
 
     # ── Explanation ────────────────────────────────────────────────────────
-    st.markdown("### 💬 Explanation")
+    _ai_tag = "<span style='font-size:10px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:4px;padding:2px 8px;color:#555;margin-left:8px;vertical-align:middle;'>AI</span>" if ai_powered else ""
+    st.markdown(f"### What we found {_ai_tag}", unsafe_allow_html=True)
     st.markdown(
-        f'<div class="explanation-box">{result.explanation_text}</div>',
+        f'<div class="explanation-box">{explanation_body}</div>',
         unsafe_allow_html=True,
     )
 
     # ── Factor Breakdown ───────────────────────────────────────────────────
+    _FACTOR_NAME_MAP = {
+        "pre_sale_spike": "Price spike before sale",
+        "short_original_price_hold": "'Original' price wasn't held long",
+        "long_original_price_hold": "'Original' price held for a long time",
+        "sale_price_not_low": "Sale price isn't actually cheap",
+        "sale_price_genuinely_low": "Sale price is genuinely low",
+        "minimal_discount_vs_median": "Tiny saving vs. typical price",
+        "deep_discount_vs_median": "Big saving vs. typical price",
+        "rising_trend_plus_spike": "Price was already rising before the spike",
+        "isolation_forest_cross_check": "Cross-check against similar products",
+    }
     if result.factors:
-        with st.expander("🔎 Factor breakdown", expanded=True):
+        with st.expander("What signals did we find?", expanded=True):
             factor_data = [
                 {
-                    "Factor": f.name.replace("_", " ").title(),
-                    "Description": f.description,
-                    "Contribution": f"{f.contribution:+.2f}",
+                    "Signal": _FACTOR_NAME_MAP.get(f.name, f.name.replace("_", " ").title()),
+                    "What it means": f.description,
+                    "Impact": "Suspicious" if f.contribution > 0 else ("Looks fine" if f.contribution < 0 else "Info only"),
                 }
                 for f in result.factors
             ]
@@ -492,27 +450,27 @@ def run_analysis(df: pd.DataFrame, orig: float, sale: float, sale_date: str, pid
             )
 
     # ── Raw Features ──────────────────────────────────────────────────────
-    with st.expander("🔬 Raw extracted features"):
+    with st.expander("Detailed numbers (for the curious)"):
         feat_data = {
-            "Feature": [
-                "Days of history",
-                "Days original price held",
-                "Pre-sale spike %",
-                "Sale price percentile",
-                "% below median",
-                "Coefficient of variation",
-                "Volatility label",
-                "Trend slope (₹/day)",
+            "What we measured": [
+                "Days of price history we have",
+                "Days the 'original' price was held before the sale",
+                "How much the price jumped just before the sale",
+                "Where the sale price ranks vs. all past prices (lower = cheaper)",
+                "How much cheaper the sale price is vs. the usual price",
+                "How much the price fluctuates overall (higher = more chaotic)",
+                "Overall price stability",
+                "Price trend (positive = rising, negative = falling)",
             ],
             "Value": [
-                features.n_days_history,
-                features.days_original_price_held,
-                f"{features.pre_sale_spike_pct:.2%}",
-                f"{features.sale_price_percentile:.2%}",
-                f"{features.pct_below_median:.2%}",
-                f"{features.coefficient_of_variation:.4f}",
+                f"{features.n_days_history} days",
+                f"{features.days_original_price_held} days",
+                f"{features.pre_sale_spike_pct:.1%}",
+                f"{features.sale_price_percentile:.0%} percentile",
+                f"{features.pct_below_median:.1%} below usual",
+                f"{features.coefficient_of_variation:.2f}",
                 features.volatility_label,
-                f"{features.trend_slope_per_day:.4f}",
+                f"{'Rising' if features.trend_slope_per_day > 0 else 'Falling'} (₹{abs(features.trend_slope_per_day):.2f}/day)",
             ],
         }
         st.dataframe(pd.DataFrame(feat_data), use_container_width=True, hide_index=True)
@@ -525,15 +483,9 @@ def run_analysis(df: pd.DataFrame, orig: float, sale: float, sale_date: str, pid
 with st.sidebar:
     st.markdown(
         """
-        <div style='text-align:center;padding:20px 0 28px;'>
-          <div style='font-size:44px;filter:drop-shadow(0 0 18px rgba(88,166,255,0.6));margin-bottom:10px;'>🔍</div>
-          <div style='font-size:20px;font-weight:900;letter-spacing:-0.5px;
-                      background:linear-gradient(90deg,#58a6ff,#a371f7);
-                      -webkit-background-clip:text;-webkit-text-fill-color:transparent;'
-          >Fake Discount Detector</div>
-          <div style='font-size:11px;color:#6e7681;margin-top:6px;letter-spacing:0.5px;'>
-            PATTERN-BASED PRICE ANALYSIS
-          </div>
+        <div style='padding:20px 0 24px;'>
+          <div style='font-size:17px;font-weight:800;color:#f0f0f0;letter-spacing:-0.3px;'>Fake Discount Detector</div>
+          <div style='font-size:11px;color:#555;margin-top:4px;letter-spacing:1px;text-transform:uppercase;'>Price Honesty Checker</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -542,14 +494,14 @@ with st.sidebar:
     st.divider()
 
     mode = st.radio(
-        "**Input mode**",
-        options=["Real Product 🛒", "Demo (synthetic)", "Upload CSV"],
+        "**How do you want to test it?**",
+        options=["Real Product", "Try an Example", "Upload CSV"],
         index=0,
     )
 
     st.divider()
 
-    if mode == "Real Product 🛒":
+    if mode == "Real Product":
         catalog = load_catalog()
         product_names = catalog["name"].tolist()
         selected_name = st.selectbox(
@@ -571,36 +523,93 @@ with st.sidebar:
             unsafe_allow_html=True,
         )
         st.divider()
-        n_days_real = st.slider("Simulated history length (days)", 60, 300, 180, 10)
-        seed_real   = st.number_input("Seed", value=42, step=1)
-        analyze_btn = st.button("🔍 Analyse", use_container_width=True, type="primary")
+        n_days_real = st.slider("How many days of price history to simulate", 60, 300, 180, 10)
+        seed_real   = st.number_input("Variation ID (change to see different simulations)", value=42, step=1)
+        analyze_btn = st.button("Check this discount", use_container_width=True, type="primary")
 
-    elif mode == "Demo (synthetic)":
+    elif mode == "Try an Example":
         regime_labels = {
-            "Dark Pattern 🔴": Regime.DARK_PATTERN,
-            "Genuine Discount 🟢": Regime.GENUINE_DISCOUNT,
-            "Stable (cosmetic) 🟡": Regime.STABLE,
-            "Gradual Drift 🟡": Regime.GRADUAL_DRIFT,
+            "Fake Discount (Price inflated before sale)": Regime.DARK_PATTERN,
+            "Real Discount (Genuine price drop)": Regime.GENUINE_DISCOUNT,
+            "Cosmetic Discount (Barely any savings)": Regime.STABLE,
+            "Gradual Drift (Slow price rise then 'sale')": Regime.GRADUAL_DRIFT,
         }
         regime_choice = st.selectbox(
-            "**Regime**",
+            "**Pick a pricing scenario**",
             options=list(regime_labels.keys()),
             index=0,
-            help="Choose a simulated pricing pattern to analyse.",
+            help="Choose a scenario to see how the detector handles it.",
         )
-        seed = st.number_input("Seed (for reproducibility)", value=42, step=1)
-        n_days = st.slider("History length (days)", 60, 300, 180, 10)
-        base_price = st.number_input("Base price (₹)", value=1000.0, step=50.0)
+        seed = st.number_input("Variation ID (change to see different examples)", value=42, step=1)
+        n_days = st.slider("Days of price history to show", 60, 300, 180, 10)
+        base_price = st.number_input("Product price (₹)", value=1000.0, step=50.0)
 
-        analyze_btn = st.button("🔍 Analyse", use_container_width=True, type="primary")
+        analyze_btn = st.button("Check this discount", use_container_width=True, type="primary")
 
     else:  # Upload CSV
+
+        # ── CSV Guide ──────────────────────────────────────────────────────
+        st.markdown(
+            """
+            <div style='background:#141414;border:1px solid #242424;border-radius:10px;
+                        padding:16px 18px;margin-bottom:14px;font-size:12px;'>
+              <div style='font-weight:700;color:#f0f0f0;margin-bottom:10px;font-size:13px;'>How to prepare your CSV</div>
+
+              <div style='color:#888;margin-bottom:10px;line-height:1.6;'>
+                Your file must have at least these two columns:
+              </div>
+
+              <div style='background:#0a0a0a;border:1px solid #2a2a2a;border-radius:6px;
+                          padding:10px 14px;font-family:monospace;font-size:11px;color:#aaa;margin-bottom:12px;'>
+                date, price, product_name<br>
+                2024-01-01, 4999, Nike Air Max<br>
+                2024-01-02, 4999, Nike Air Max<br>
+                2024-03-15, 2999, Nike Air Max
+              </div>
+
+              <div style='display:flex;flex-direction:column;gap:8px;'>
+                <div style='display:flex;gap:8px;align-items:flex-start;'>
+                  <span style='color:#4ade80;font-size:14px;flex-shrink:0;'>✓</span>
+                  <span style='color:#888;'><b style='color:#ccc;'>date</b> — any standard format works (YYYY-MM-DD preferred)</span>
+                </div>
+                <div style='display:flex;gap:8px;align-items:flex-start;'>
+                  <span style='color:#4ade80;font-size:14px;flex-shrink:0;'>✓</span>
+                  <span style='color:#888;'><b style='color:#ccc;'>price</b> — the actual price on that day (numbers only, no ₹ symbol)</span>
+                </div>
+                <div style='display:flex;gap:8px;align-items:flex-start;'>
+                  <span style='color:#555;font-size:14px;flex-shrink:0;'>○</span>
+                  <span style='color:#666;'><b style='color:#888;'>product_name</b> — optional, lets you store multiple products in one file</span>
+                </div>
+              </div>
+
+              <div style='margin-top:12px;padding-top:12px;border-top:1px solid #222;display:flex;flex-direction:column;gap:6px;'>
+                <div style='display:flex;gap:8px;align-items:flex-start;'>
+                  <span style='color:#fbbf24;font-size:13px;flex-shrink:0;'>⚠</span>
+                  <span style='color:#777;'><b style='color:#aaa;'>Min. 30 days</b> of history needed for a confident verdict. 60–180 days is ideal.</span>
+                </div>
+                <div style='display:flex;gap:8px;align-items:flex-start;'>
+                  <span style='color:#60a5fa;font-size:13px;flex-shrink:0;'>→</span>
+                  <span style='color:#777;'><b style='color:#aaa;'>Sale date</b> — set this to the day the discount was applied, not today.</span>
+                </div>
+                <div style='display:flex;gap:8px;align-items:flex-start;'>
+                  <span style='color:#60a5fa;font-size:13px;flex-shrink:0;'>→</span>
+                  <span style='color:#777;'><b style='color:#aaa;'>Claimed MRP</b> — the "original" price shown by the seller (crossed-out price).</span>
+                </div>
+                <div style='display:flex;gap:8px;align-items:flex-start;'>
+                  <span style='color:#60a5fa;font-size:13px;flex-shrink:0;'>→</span>
+                  <span style='color:#777;'><b style='color:#aaa;'>Sale price</b> — the discounted price the seller is showing right now.</span>
+                </div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
         uploaded = st.file_uploader(
             "**Upload price history CSV**",
             type=["csv"],
-            help="Required columns: `date`, `price`. Optional: `product_name`",
+            help="Required columns: date, price. Optional: product_name",
         )
-        st.caption("Required: `date`, `price`. Optional: `product_name` (for multiple products in one file)")
         st.divider()
         
         analyze_btn = False
@@ -646,18 +655,21 @@ with st.sidebar:
                     orig_input = st.number_input("Claimed MRP (₹)", value=default_orig, step=10.0, key=f"orig_{pid_val}")
                     sale_input = st.number_input("Claimed Sale Price (₹)", value=default_sale, step=10.0, key=f"sale_{pid_val}")
                     sale_date_input = st.date_input("Sale date", value=default_date, key=f"date_{pid_val}")
-                    analyze_btn = st.button("🔍 Analyse", use_container_width=True, type="primary")
+                    analyze_btn = st.button("Check this discount", use_container_width=True, type="primary")
             except Exception as e:
                 st.error(f"Error parsing CSV: {e}")
 
     st.divider()
-    st.markdown(
-        "<div style='font-size:11px;color:#8b949e;text-align:center;'>"
-        "Uses rule-based statistics + Isolation Forest.<br>"
-        "Three-state output: Genuine / Suspicious / Uncertain"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+
+
+# ---------------------------------------------------------------------------
+# Load Gemini API key from secrets (invisible to users)
+# ---------------------------------------------------------------------------
+
+try:
+    _GEMINI_KEY = st.secrets.get("GEMINI_API_KEY", "")
+except Exception:
+    _GEMINI_KEY = ""
 
 
 # ---------------------------------------------------------------------------
@@ -666,23 +678,19 @@ with st.sidebar:
 
 st.markdown(
     """
-    <div style='margin-bottom:28px;'>
-      <h1 style='font-size:38px;font-weight:900;letter-spacing:-1px;margin-bottom:6px;
-                  background:linear-gradient(90deg,#e6edf3 0%,#58a6ff 50%,#a371f7 100%);
-                  -webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block;'>
-        Fake Discount Detector
-      </h1>
-      <p style='color:#6e7681;font-size:15px;margin:0 0 16px;max-width:620px;line-height:1.6;'>
-        Detects misleading e-commerce discounts by analyzing historical pricing patterns —
-        no machine-learning labels required.
+    <div style='margin-bottom:32px;'>
+      <h1 style='font-size:40px;font-weight:800;letter-spacing:-1.5px;margin-bottom:8px;color:#f0f0f0;line-height:1.1;'>
+        Is that discount real?</h1>
+      <p style='color:#666;font-size:16px;margin:0 0 20px;max-width:560px;line-height:1.6;'>
+        Paste a product, upload a price history, or try a demo — we’ll tell you if the “60% off” is genuine or manufactured.
       </p>
       <div style='display:flex;gap:8px;flex-wrap:wrap;'>
-        <span style='background:rgba(88,166,255,0.12);border:1px solid rgba(88,166,255,0.25);
-                     color:#58a6ff;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:600;'>📊 Rule-based</span>
-        <span style='background:rgba(163,113,247,0.12);border:1px solid rgba(163,113,247,0.25);
-                     color:#a371f7;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:600;'>🤖 Isolation Forest</span>
-        <span style='background:rgba(86,211,100,0.12);border:1px solid rgba(86,211,100,0.25);
-                     color:#56d364;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:600;'>✅ 3-State verdict</span>
+        <span style='background:#1a1a1a;border:1px solid #2a2a2a;color:#888;
+                     border-radius:6px;padding:4px 14px;font-size:12px;font-weight:600;'>Price Pattern Analysis</span>
+        <span style='background:#1a1a1a;border:1px solid #2a2a2a;color:#888;
+                     border-radius:6px;padding:4px 14px;font-size:12px;font-weight:600;'>Anomaly Detection</span>
+        <span style='background:#1a1a1a;border:1px solid #2a2a2a;color:#888;
+                     border-radius:6px;padding:4px 14px;font-size:12px;font-weight:600;'>Plain-English Verdict</span>
       </div>
     </div>
     """,
@@ -694,37 +702,33 @@ st.divider()
 if not analyze_btn:
     # Landing state
     c1, c2, c3 = st.columns(3)
-    for col, icon, title, desc, accent in [
-        (c1, "📊", "Pattern Recognition",
-         "Detects pre-sale price spikes, short-hold 'original' prices, and cosmetic discounts.",
+    for col, title, desc, accent in [
+        (c1, "Spot the Price Spike",
+         "Catches when sellers secretly raise the price before a sale, then 'discount' it back — making a fake deal look real.",
          "#58a6ff"),
-        (c2, "🤖", "Anomaly Detection",
-         "Isolation Forest cross-checks pricing against a reference population of real products.",
+        (c2, "Cross-check Against Real Products",
+         "Compares pricing behaviour against hundreds of real products to catch unusual patterns that rules alone might miss.",
          "#a371f7"),
-        (c3, "💬", "Plain-language Verdict",
-         "Every result ships with a readable explanation — Genuine, Suspicious, or Uncertain.",
+        (c3, "A Clear Answer, Not a Number",
+         "You get a plain verdict — Genuine, Suspicious, or Uncertain — with a full explanation of why.",
          "#56d364"),
     ]:
         with col:
             st.markdown(
                 f"""
                 <div class="feature-card">
-                  <div style='font-size:36px;margin-bottom:16px;
-                              filter:drop-shadow(0 0 12px {accent}66);'>{icon}</div>
-                  <div style='font-size:15px;font-weight:700;color:#e6edf3;
-                              margin-bottom:10px;'>{title}</div>
-                  <div style='font-size:13px;color:#6e7681;line-height:1.7;'>{desc}</div>
+                  <div style='font-size:15px;font-weight:700;color:#f0f0f0;margin-bottom:8px;'>{title}</div>
+                  <div style='font-size:13px;color:#666;line-height:1.7;'>{desc}</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
     st.markdown(
         """
-        <div style='margin-top:28px;background:linear-gradient(135deg,rgba(88,166,255,0.08),rgba(163,113,247,0.06));
-                    border:1px solid rgba(88,166,255,0.2);border-radius:12px;
-                    padding:16px 22px;font-size:14px;color:#8b949e;'>
-          💡 <b style='color:#c9d1d9;'>Get started:</b> Choose an input mode in the sidebar and click
-          <b style='color:#58a6ff;'>Analyse</b> to inspect a product's pricing history.
+        <div style='margin-top:28px;background:#141414;border:1px solid #242424;
+                    border-radius:10px;padding:16px 22px;font-size:14px;color:#666;'>
+          → <b style='color:#f0f0f0;'>How to use:</b> Pick a product (or try an example) in the sidebar,
+          then click <b style='color:#f0f0f0;'>Check this discount</b>.
         </div>
         """,
         unsafe_allow_html=True,
@@ -776,7 +780,7 @@ else:
             regime_reason = f"{discount_pct:.0f}% off — mid-range, classic fake-discount range."
             sim_base = discount_p  # history at real price → MRP looks like an artificial spike
 
-        st.caption(f"🤖 Auto-detected pattern: **{auto_regime.value}** — {regime_reason}")
+        st.caption(f"Auto-detected pattern: **{auto_regime.value}** — {regime_reason}")
 
         with st.spinner("Simulating price history for this product…"):
             series = generate_series(
@@ -798,10 +802,11 @@ else:
             sale=discount_p,
             sale_date=series.sale_date,
             pid=selected_name[:40],
+            gemini_key=_GEMINI_KEY,
         )
 
     # ── Demo mode ──────────────────────────────────────────────────────────
-    elif mode == "Demo (synthetic)":
+    elif mode == "Try an Example 🧪":
         regime = regime_labels[regime_choice]
         with st.spinner("Generating synthetic price history…"):
             series = generate_series(
@@ -813,15 +818,22 @@ else:
             )
         df = series.to_dataframe()
 
+        _scenario_labels = {
+            "dark_pattern": "Fake Discount — price was inflated before the sale",
+            "genuine_discount": "Real Discount — price genuinely dropped",
+            "stable": "Cosmetic Discount — barely any real saving",
+            "gradual_drift": "Gradual Drift — price slowly crept up before a 'sale'",
+        }
+        scenario_desc = _scenario_labels.get(series.regime.value, series.regime.value)
+        gt_label = "Real deal" if series.ground_truth_genuine else "Fake deal"
         st.markdown(
             f"""
             <div style='background:#161b22;border:1px solid #30363d;border-radius:8px;
                         padding:12px 20px;margin-bottom:20px;font-size:13px;color:#8b949e;'>
-              <b style='color:#c9d1d9;'>Synthetic series:</b>
-              regime = <code>{series.regime.value}</code> &nbsp;|&nbsp;
-              claimed orig = <b>₹{series.claimed_original_price:.2f}</b> &nbsp;|&nbsp;
-              sale price = <b>₹{series.claimed_sale_price:.2f}</b> &nbsp;|&nbsp;
-              ground truth = <b>{'Genuine' if series.ground_truth_genuine else 'Suspicious'}</b>
+              <b style='color:#c9d1d9;'>Simulated scenario:</b> {scenario_desc} &nbsp;|&nbsp;
+              Listed price: <b>₹{series.claimed_original_price:.0f}</b> &nbsp;|&nbsp;
+              Sale price: <b style='color:#56d364;'>₹{series.claimed_sale_price:.0f}</b> &nbsp;|&nbsp;
+              Ground truth: <b>{gt_label}</b>
             </div>
             """,
             unsafe_allow_html=True,
@@ -833,12 +845,13 @@ else:
             sale=series.claimed_sale_price,
             sale_date=series.sale_date,
             pid=series.product_id,
+            gemini_key=_GEMINI_KEY,
         )
 
     # ── CSV upload mode ────────────────────────────────────────────────────
     else:
         if uploaded is None:
-            st.warning("Please upload a CSV file in the sidebar.", icon="⬆️")
+            st.warning("Please upload a CSV file in the sidebar.")
         elif 'prod_df' in locals() and prod_df is not None:
             st.markdown(
                 f"""
@@ -857,4 +870,5 @@ else:
                 sale=float(sale_input),
                 sale_date=str(sale_date_input),
                 pid=pid_input,
+                gemini_key=_GEMINI_KEY,
             )
